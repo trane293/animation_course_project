@@ -5,14 +5,14 @@ from __future__ import print_function
 import argparse
 import logging
 import os
-
+os.environ['LD_LIBRARY_PATH'] = '/home/anmol/.mujoco/mjpro150/bin'
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__file__.split(os.sep)[-1])
 logger.setLevel(logging.INFO)
 
 
-import os, gym
+import os, gym, roboschool
 import time
 
 from tensorforce.agents import Agent
@@ -31,6 +31,7 @@ def main():
     parser.add_argument('-m', '--max-episode-timesteps', type=int, default=None, help="Maximum number of timesteps per episode")
     parser.add_argument('-d', '--deterministic', action='store_true', default=False, help="Choose deterministically and don't use random actions.")
     parser.add_argument('-l', '--load', help="Load pretrained agent from this particular directory.")
+    parser.add_argument('-nm', '--num-episodes-to-test', type=int, default=10, help="Number of episodes to test the loaded policy for.")
     parser.add_argument('-x', '--exp', type=str, default='exp', help="Name of experiment for logging/saving weights.")
     parser.add_argument('--monitor', default='./logs/', help="Save results and logs to this directory.")
     parser.add_argument('--save', default='./weights/', help="Save trained model to this directory.")
@@ -78,6 +79,19 @@ def main():
         )
     )
 
+    def episode_finished(r, id):
+        if r.episode % report_episodes == 0:
+            steps_per_second = r.timestep / (time.time() - r.start_time)
+            logger.info("Finished episode {:d} after {:d} timesteps. Steps Per Second {:0.2f}".format(
+                r.agent.episode, r.episode_timestep, steps_per_second
+            ))
+            logger.info("Episode reward: {}".format(r.episode_rewards[-1]))
+            logger.info("Average of last 500 rewards: {:0.2f}".
+                        format(sum(r.episode_rewards[-500:]) / min(500, len(r.episode_rewards))))
+            logger.info("Average of last 100 rewards: {:0.2f}".
+                        format(sum(r.episode_rewards[-100:]) / min(100, len(r.episode_rewards))))
+        return True
+
     if args.load:
         logger.info("Testing pre-trained model!")
         load_dir = os.path.dirname(args.load)
@@ -87,12 +101,15 @@ def main():
         logger.info('Loaded pre-trained model weights!')
         logger.info('Starting testing process!')
         env = gym.make(args.gym_id)
-        s = env.reset()
-        done = False
-        while not done:
-            env.render()
-            action = agent.act(s)
-            s, r, done, _ = env.step(action)
+        for _i in range(args.num_episodes_to_test):
+            logger.info('Episode: {}'.format(_i))
+            s = env.reset()
+            done = False
+            while not done:
+                env.render()
+                action = agent.act(s)
+                s, r, done, _ = env.step(action)
+            # TODO: Make a logger here similar to episode_end()
         return
 
     if args.debug:
@@ -109,22 +126,9 @@ def main():
     if args.debug:  # TODO: Timestep-based reporting
         report_episodes = 1
     else:
-        report_episodes = 100
+        report_episodes = 1
 
     logger.info("Starting {agent} for Environment '{env}'".format(agent=agent, env=env))
-
-    def episode_finished(r, id_):
-        if r.episode % report_episodes == 0:
-            steps_per_second = r.timestep / (time.time() - r.start_time)
-            logger.info("Finished episode {:d} after {:d} timesteps. Steps Per Second {:0.2f}".format(
-                r.agent.episode, r.episode_timestep, steps_per_second
-            ))
-            logger.info("Episode reward: {}".format(r.episode_rewards[-1]))
-            logger.info("Average of last 500 rewards: {:0.2f}".
-                        format(sum(r.episode_rewards[-500:]) / min(500, len(r.episode_rewards))))
-            logger.info("Average of last 100 rewards: {:0.2f}".
-                        format(sum(r.episode_rewards[-100:]) / min(100, len(r.episode_rewards))))
-        return True
 
     runner.run(
         num_timesteps=args.timesteps,

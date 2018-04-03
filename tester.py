@@ -1,10 +1,10 @@
 import gym
 import os
-
+os.environ['LD_LIBRARY_PATH'] = '/home/anmol/.mujoco/mjpro150/bin'
 import mujoco_py
 
 LR = 1e-3
-env = gym.make('Hopper-v2')
+env = gym.make('HandReach-v0')
 env.reset()
 goal_steps = 500
 score_requirement = 50
