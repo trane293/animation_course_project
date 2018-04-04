@@ -32,7 +32,7 @@ def main():
     parser.add_argument('-d', '--deterministic', action='store_true', default=False, help="Choose deterministically and don't use random actions.")
     parser.add_argument('-l', '--load', help="Load pretrained agent from this particular directory.")
     parser.add_argument('-nm', '--num-episodes-to-test', type=int, default=10, help="Number of episodes to test the loaded policy for.")
-    parser.add_argument('-x', '--exp', type=str, default='exp', help="Name of experiment for logging/saving weights.")
+    parser.add_argument('-x', '--exp', type=str, default='exp_test_delete_this', help="Name of experiment for logging/saving weights.")
     parser.add_argument('--monitor', default='./logs/', help="Save results and logs to this directory.")
     parser.add_argument('--save', default='./weights/', help="Save trained model to this directory.")
     parser.add_argument('--monitor-safe', action='store_true', default=False, help="Do not overwrite previous results.")
@@ -40,16 +40,6 @@ def main():
     parser.add_argument('-D', '--debug', action='store_true', default=False, help="Show debug outputs.")
 
     args = parser.parse_args()
-    logfilepath = os.path.join(args.monitor, args.agent, args.exp)
-    logger.info('Creating logging folder {}'.format(logfilepath))
-    os.system('mkdir -p {}'.format(logfilepath))
-    env = OpenAIGym(
-        gym_id=args.gym_id,
-        monitor=logfilepath,
-        monitor_safe=args.monitor_safe,
-        monitor_video=args.monitor_video,
-        visualize=args.novisualize
-    )
 
     # Load the required agent from custom module
     logger.info('Loading {} Agent/Network'.format(args.agent))
@@ -69,6 +59,21 @@ def main():
     elif args.agent.lower() == 'vpg':
         from modules.custom_agents import VPG_Agent_Network
         agent, network = VPG_Agent_Network()
+    
+    logfilepath = os.path.join(args.monitor, args.agent, args.exp)
+    
+    if not args.load:    
+        logger.info('Creating logging folder {}'.format(logfilepath))
+        os.system('mkdir -p {}'.format(logfilepath))
+
+    env = OpenAIGym(
+        gym_id=args.gym_id,
+        monitor=logfilepath,
+        monitor_safe=args.monitor_safe,
+        monitor_video=args.monitor_video,
+        visualize=args.novisualize
+    )
+
 
     agent = Agent.from_spec(
         spec=agent,
@@ -78,19 +83,7 @@ def main():
             network=network,
         )
     )
-
-    def episode_finished(r, id):
-        if r.episode % report_episodes == 0:
-            steps_per_second = r.timestep / (time.time() - r.start_time)
-            logger.info("Finished episode {:d} after {:d} timesteps. Steps Per Second {:0.2f}".format(
-                r.agent.episode, r.episode_timestep, steps_per_second
-            ))
-            logger.info("Episode reward: {}".format(r.episode_rewards[-1]))
-            logger.info("Average of last 500 rewards: {:0.2f}".
-                        format(sum(r.episode_rewards[-500:]) / min(500, len(r.episode_rewards))))
-            logger.info("Average of last 100 rewards: {:0.2f}".
-                        format(sum(r.episode_rewards[-100:]) / min(100, len(r.episode_rewards))))
-        return True
+    
 
     if args.load:
         logger.info("Testing pre-trained model!")
@@ -111,6 +104,19 @@ def main():
                 s, r, done, _ = env.step(action)
             # TODO: Make a logger here similar to episode_end()
         return
+
+    def episode_finished(r, id):
+        if r.episode % report_episodes == 0:
+            steps_per_second = r.timestep / (time.time() - r.start_time)
+            logger.info("Finished episode {:d} after {:d} timesteps. Steps Per Second {:0.2f}".format(
+                r.agent.episode, r.episode_timestep, steps_per_second
+            ))
+            logger.info("Episode reward: {}".format(r.episode_rewards[-1]))
+            logger.info("Average of last 500 rewards: {:0.2f}".
+                        format(sum(r.episode_rewards[-500:]) / min(500, len(r.episode_rewards))))
+            logger.info("Average of last 100 rewards: {:0.2f}".
+                        format(sum(r.episode_rewards[-100:]) / min(100, len(r.episode_rewards))))
+        return True
 
     if args.debug:
         logger.info("-" * 16)
