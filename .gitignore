@@ -2,3 +2,4 @@
 notebooks/.ipynb_checkpoints
 modules/__pycache__
 openai_gym.py
+videos
